@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bike Torque Specs</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c0392b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Torque">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<style>
+  :root {
+    --bg:       #0f0f0f;
+    --surface:  #1a1a1a;
+    --border:   #2e2e2e;
+    --accent:   #c0392b;
+    --accent2:  #e74c3c;
+    --text:     #e8e8e8;
+    --muted:    #888;
+    --nm:       #f39c12;
+    --tag-bg:   #222;
+    --tag-text: #aaa;
+    --hit:      #f39c12;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, "SF Mono", "Menlo", "Courier New", monospace;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--accent);
+    padding: 14px 16px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  header h1 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  #source-ref {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+
+  /* tap tooltip */
+  #tooltip {
+    position: fixed;
+    background: #111;
+    color: #f0f0f0;
+    border: 1px solid var(--accent2);
+    border-radius: 4px;
+    padding: 5px 9px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 220px;
+    line-height: 1.3;
+    display: none;
+  }
+
+  #search {
+    width: 100%;
+    background: #000;
+    border: none;
+    border-bottom: 2px solid var(--accent2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 17px;
+    padding: 8px 4px;
+    outline: none;
+    caret-color: var(--accent2);
+  }
+
+  #search::placeholder { color: #555; }
+
+  #cat-bar {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 10px 16px 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #cat-bar::-webkit-scrollbar { display: none; }
+
+  .cat-btn {
+    flex-shrink: 0;
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 9px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cat-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  #count {
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.05em;
+  }
+
+  #results { padding: 0 0 60px; }
+
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .row:nth-child(even) { background: var(--surface); }
+
+  .cat-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--accent2);
+    width: 52px;
+    text-align: right;
+    padding-top: 1px;
+    cursor: pointer;
+  }
+
+  .desc {
+    flex: 1;
+    line-height: 1.45;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  .nm {
+    flex-shrink: 0;
+    text-align: right;
+    color: var(--nm);
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .nm .unit {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--muted);
+  }
+
+  mark {
+    background: transparent;
+    color: var(--hit);
+    font-weight: 700;
+  }
+
+  #empty {
+    display: none;
+    padding: 60px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+
+  /* legend */
+  #legend {
+    padding: 20px 16px 6px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    line-height: 1.8;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  #legend summary {
+    cursor: pointer;
+    color: var(--tag-text);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #legend .kv { display: flex; gap: 10px; }
+  #legend .kcode { color: var(--accent2); width: 52px; text-align: right; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>&#128295; Bike Torque Specs</h1>
+  <div id="source-ref">Source: Zinn &amp; the Art of Road Bike Maintenance, 4th Ed.</div>
+  <input type="search"
+         id="search"
+         placeholder="type to search…"
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false">
+</header>
+
+<div id="cat-bar">
+  <button class="cat-btn active" data-cat="ALL">ALL</button>
+</div>
+
+<div id="count"></div>
+
+<details id="legend">
+  <summary>Category Key</summary>
+  <br>
+  <div class="kv"><span class="kcode">GEN</span><span>General Torque — Steel Bolt into Aluminum Part</span></div>
+  <div class="kv"><span class="kcode">BB</span><span>Bottom Brackets &amp; Cranks</span></div>
+  <div class="kv"><span class="kcode">BRK_SP</span><span>Brakes — Sidepull Calipers</span></div>
+  <div class="kv"><span class="kcode">BRK_CV</span><span>Brakes — Cantilevers &amp; V-Brakes</span></div>
+  <div class="kv"><span class="kcode">BRK_DC</span><span>Brakes — Disc Brakes</span></div>
+  <div class="kv"><span class="kcode">DER</span><span>Derailleurs &amp; Shifters</span></div>
+  <div class="kv"><span class="kcode">DCL</span><span>Dual Control Lever</span></div>
+  <div class="kv"><span class="kcode">HUB</span><span>Hubs, Cassettes &amp; Quick-Release Skewers</span></div>
+  <div class="kv"><span class="kcode">MISC</span><span>Miscellaneous</span></div>
+  <div class="kv"><span class="kcode">PED</span><span>Pedals &amp; Shoes</span></div>
+  <div class="kv"><span class="kcode">SP</span><span>Seatposts &amp; Seat Binders</span></div>
+  <div class="kv"><span class="kcode">STM</span><span>Stems</span></div>
+  <div class="kv"><span class="kcode">HB</span><span>Handlebars</span></div>
+  <div class="kv"><span class="kcode">AHB</span><span>Aero Handlebars</span></div>
+  <br>
+</details>
+
+<div id="tooltip"></div>
+<div id="results"></div>
+<div id="empty">No matches found.</div>
+
+<script>
+// ── SERVICE WORKER REGISTRATION ──────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => {
+      console.warn("Service worker registration failed:", err);
+    });
+  });
+}
+
+// ── DATA ────────────────────────────────────────────────────────────────────
+// [category, description, nm_min, nm_max]  — nm_min is null when max-only
+const DATA = [
+  ["GEN","M5 bolt",7,7],
+  ["GEN","M6 bolt",14,14],
+  ["GEN","M6 bolt clamping a carbon part",11,11],
+  ["GEN","M7 bolt",20,20],
+  ["GEN","M8 bolt",25,25],
+  ["BB","Bontrager square-taper (Sport) crankarm fixing bolts, M8",36,42],
+  ["BB","Bontrager ISIS (Select, Race) crankarm fixing bolts, M15",null,55],
+  ["BB","Bontrager GXP (Race Lite, Race X Lite) crankarm fixing bolt",null,55],
+  ["BB","Bontrager chainring fixing bolt, steel",8,11],
+  ["BB","Bontrager chainring fixing bolt, aluminum",6,8],
+  ["BB","Campagnolo/Fulcrum Power Torque and Ultra-Torque crank fixing bolt",42,60],
+  ["BB","Campagnolo/Fulcrum Power Torque and Ultra-Torque external bearing cups",null,35],
+  ["BB","Campagnolo square-taper crankarm fixing bolt (M8 steel)",32,38],
+  ["BB","Campagnolo square-taper cartridge bottom bracket cups",null,70],
+  ["BB","Campagnolo chainring fixing bolt",null,8],
+  ["BB","Easton external bearing cups",34,41],
+  ["BB","Easton left crankarm fixing pinch bolts (M5)",null,12],
+  ["BB","Easton chainring fixing bolt",null,4.5],
+  ["BB","FSA M8 steel crankarm fixing bolt",34,39],
+  ["BB","FSA M12 steel crankarm fixing bolt",49,59],
+  ["BB","FSA M14 steel crankarm fixing bolt",49,59],
+  ["BB","FSA M14 aluminum crankarm fixing bolt",44,49],
+  ["BB","FSA M15 steel crankarm fixing bolt",49,59],
+  ["BB","FSA M15 aluminum crankarm fixing bolt",49,59],
+  ["BB","FSA M18 bearing preload bolt, MegaExo",0.4,0.7],
+  ["BB","FSA M18 bearing preload bolt, BB90/BB86",0.7,1.5],
+  ["BB","FSA M5 pinch bolt, split aluminum crankarm, MegaExo",12,13],
+  ["BB","FSA M5 pinch bolt, split aluminum crankarm, BB30/BB86",11,15],
+  ["BB","FSA M17 crankarm fixing bolt, carbon crank, BB90/BB86",45,55],
+  ["BB","FSA M18 crankarm fixing bolt, carbon crank, MegaExo",45,55],
+  ["BB","FSA BB30 crankarm fixing bolt",39,49],
+  ["BB","FSA steel Allen chainring fixing bolt",9,12],
+  ["BB","FSA aluminum Allen chainring fixing bolt",null,10],
+  ["BB","FSA aluminum Torx chainring fixing bolt",null,11],
+  ["BB","FSA aluminum cartridge bottom bracket cups",39,49],
+  ["BB","FSA MegaExo bottom bracket cups",39,49],
+  ["BB","Race Face X-Type crankarm fixing bolt",41,68],
+  ["BB","Shimano square-taper crankarm fixing bolt (M8 steel)",34,44],
+  ["BB","Shimano crankarm fixing bolt (OctaLink/Hollowtech)",35,50],
+  ["BB","Shimano left crankarm bearing preload cap (Hollowtech 2)",0.5,0.7],
+  ["BB","Shimano Hollowtech 2 left crankarm fixing pinch bolts (M5)",12,14],
+  ["BB","Shimano chainring fixing bolt, steel",8,11],
+  ["BB","Shimano square/OctaLink cartridge bottom bracket cups",50,70],
+  ["BB","Shimano integrated-spindle (Hollowtech 2) bearing cups",35,50],
+  ["BB","Shimano loose-ball-bearing bottom bracket fixed cup",69,79],
+  ["BB","Shimano loose-ball-bearing bottom bracket lockring",69,79],
+  ["BB","SRAM/Truvativ steel chainring bolts",12,14],
+  ["BB","SRAM/Truvativ aluminum chainring bolts",8,9],
+  ["BB","SRAM/Truvativ GXP left crank bolt",47,54],
+  ["BB","SRAM/Truvativ GXP self extractor cup (16mm hex key)",12,15],
+  ["BB","SRAM/Truvativ GXP external bearing cups",34,41],
+  ["BB","SRAM/Truvativ Howitzer ISIS external bearing cups",34,41],
+  ["BB","Trek tandem eccentric",8,11],
+  ["BB","Truvativ ISIS cartridge bearing cups",34,41],
+  ["BB","Truvativ M8 crank bolts, square taper",38,42],
+  ["BB","Truvativ M12 crank bolts, ISIS",43,48],
+  ["BB","Truvativ M15 crank bolts, ISIS",43,48],
+  ["BB","Truvativ self-extractor cup, ISIS or square taper (10mm hex key)",12,15],
+  ["BB","Zinn Zinn-tegrated left crank bolt",45,51],
+  ["BB","Zinn Zinn-tegrated self extractor cup (10mm hex key)",12,15],
+  ["BB","Zinn Zinn-tegrated external bearing cups",34,41],
+  ["BRK_SP","Caliper fixing bolt onto Trek, LeMond, or Klein carbon seatstays",6,7],
+  ["BRK_SP","Campagnolo caliper fixing bolt (to frame or fork)",null,10],
+  ["BRK_SP","Campagnolo cable-fixing bolt",null,8],
+  ["BRK_SP","Campagnolo brake-shoe fixing bolt",8,10],
+  ["BRK_SP","FSA caliper fixing bolt (to frame or fork)",6,8],
+  ["BRK_SP","FSA cable-fixing bolt",5,7],
+  ["BRK_SP","FSA brake-shoe fixing bolt",8,10],
+  ["BRK_SP","Shimano caliper fixing bolt (to frame or fork)",6,8],
+  ["BRK_SP","Shimano cable-fixing bolt",5,7],
+  ["BRK_SP","Shimano brake-shoe fixing bolt",8,10],
+  ["BRK_SP","SRAM caliper fixing bolt (to frame or fork)",6,8],
+  ["BRK_SP","SRAM cable-fixing bolt",5,7],
+  ["BRK_CV","Avid brake shoe fixing bolt",3,5],
+  ["BRK_CV","Avid cantilever brake mounting bolt",5,7],
+  ["BRK_CV","Avid straddle wire carrier cable pinch bolts",3,5],
+  ["BRK_CV","Avid split-clamp flat handlebar lever dual mounting bolts",3,4],
+  ["BRK_CV","brake arm mounting bolt, M6",5,7],
+  ["BRK_CV","brake cable fixing bolt, M5",6,8],
+  ["BRK_CV","cantilever brake pad fixing bolt",8,9],
+  ["BRK_CV","flat handlebar brake lever clamp bolt, M6",6,8],
+  ["BRK_CV","flat handlebar brake lever clamp, slotted screw",2.5,2.9],
+  ["BRK_CV","Shimano V-brake leverage adjuster bolt",1.0,1.5],
+  ["BRK_CV","straddle cable yoke fixing nut",4,5],
+  ["BRK_CV","Trek, Fisher, Klein spec for brake arm mounting bolt, M6",8,10],
+  ["BRK_CV","V-brake pad fixing nut",6,8],
+  ["BRK_DC","TRP cable anchor bolt",5,7],
+  ["BRK_DC","TRP caliper bolts",6,8],
+  ["BRK_DC","TRP disc-brake adapters",6,8],
+  ["BRK_DC","TRP hydraulic hose compression nut",4,6],
+  ["BRK_DC","TRP rotor bolts",4,6],
+  ["BRK_DC","TRP straddle cable yoke pinch bolt",2.5,3],
+  ["BRK_DC","TRP Parabox hydraulic master cylinder clamp",6,8],
+  ["BRK_DC","TRP Parabox master cylinder setup pin",0.8,1],
+  ["DER","barrel adjuster mounting screw to frame down tube shifter boss",1.5,2.0],
+  ["DER","Campagnolo braze-on type front-derailleur mounting bolt, M5",null,7],
+  ["DER","Campagnolo front-derailleur band clamp bolt, M5",null,5],
+  ["DER","Campagnolo front-derailleur cable fixing bolt, M5",null,5],
+  ["DER","Campagnolo rear-derailleur cable fixing bolt, M5",null,6],
+  ["DER","Campagnolo rear-derailleur mounting bolt, M10",null,15],
+  ["DER","Shimano front-derailleur cable fixing bolt, M5",5,7],
+  ["DER","Shimano front-derailleur band clamp bolt, M5",5,7],
+  ["DER","Shimano braze-on type front-derailleur mounting bolt, M5",5,7],
+  ["DER","Shimano rear-derailleur cable fixing bolt, M5",4,6],
+  ["DER","Shimano rear-derailleur mounting bolt, M10",8,10],
+  ["DER","Shimano rear-derailleur pulley center bolts, M5",3,4],
+  ["DER","SRAM front-derailleur cable fixing bolt, M5",4,5],
+  ["DER","SRAM braze-on type front-derailleur mounting bolt, M5",4,5],
+  ["DER","SRAM bolt-on front-derailleur adaptor band for braze-on type, M5",3,4],
+  ["DER","SRAM front-derailleur band clamp bolt, M5",5,7],
+  ["DER","SRAM rear-derailleur cable fixing bolt, M5",4,5],
+  ["DER","SRAM rear-derailleur mounting bolt, M10",8,10],
+  ["DER","SRAM rear-derailleur pulley center bolts, M5",null,3],
+  ["DER","Trek spec for front-derailleur clamp bolt, M5",3,4],
+  ["DCL","Campagnolo Ergopower fixing bolt (to handlebar)",null,10],
+  ["DCL","Shimano STI fixing bolt (to handlebar)",4,5],
+  ["DCL","Shimano Dura-Ace 7900 STI lever fixing bolt (to handlebar)",6,8],
+  ["DCL","Shimano Dura-Ace 7900 lever nameplate screw",null,0.2],
+  ["DCL","SRAM DoubleTap fixing bolt (to handlebar)",6,8],
+  ["HUB","bolt-on steel skewer",null,7],
+  ["HUB","bolt-on titanium skewer",null,10],
+  ["HUB","Campagnolo cassette cog lock ring, steel",null,40],
+  ["HUB","Campagnolo cassette cog lock ring, aluminum, for 11-speed cogs",10,25],
+  ["HUB","locknut on quick-release axle",null,40],
+  ["HUB","Mavic cassette cog lock ring",null,20],
+  ["HUB","nutted front hub",null,34],
+  ["HUB","nutted rear hub",35,50],
+  ["HUB","Shimano freehub cassette body fixing bolt",30,50],
+  ["HUB","Shimano cassette cog lock ring",8.8,11.8],
+  ["HUB","Shimano hub quick-release lever closing",28,34],
+  ["HUB","Shimano fixed-gear locknut",28,34],
+  ["HUB","Shimano single-speed freewheel",20,27],
+  ["HUB","Trek spec for front axle nuts (bolt-on hubs)",27,34],
+  ["HUB","Trek spec for rear axle nuts (bolt-on hubs)",27,34],
+  ["MISC","Aheadset bearing preload, M6 top cap bolt",null,2],
+  ["MISC","fender to frame bolts, M5",6,7],
+  ["MISC","Trek spec for rack or fender strut bolts to frame or fork",2,3],
+  ["MISC","Trek spec for rear-derailleur hanger bolt",6,8],
+  ["MISC","Trek spec for water bottle cage bolts, M5",2,3],
+  ["MISC","water bottle cage bolts, M5",3,4],
+  ["PED","Campagnolo pedal axle to crankarm",null,40],
+  ["PED","Crank Bros. pedal axle to crankarm",34,41],
+  ["PED","Crank Bros. shoe cleat fixing bolt, M5",4,5],
+  ["PED","pedal axle into FSA carbon crankarm",29,34],
+  ["PED","pedal axle into Truvativ ISIS or square taper crankarm",21,34],
+  ["PED","pedal axle into Truvativ GXP crankarm",47,54],
+  ["PED","Shimano pedal axle to crankarm",null,35],
+  ["PED","Shimano shoe cleat fixing bolt, M5",5,6],
+  ["PED","Shimano shoe spike, M5",null,4],
+  ["PED","Speedplay Frog spindle nut",4,5],
+  ["PED","Time pedal axle to crankarm",null,35],
+  ["PED","toeclips to pedals, M5",3,5],
+  ["PED","Trek spec for pedal axle to crankarm",40,43],
+  ["SP","Bontrager seatpost with bolt across seatpost head",14,15],
+  ["SP","Bontrager Select seatpost, M6 bolt",null,14],
+  ["SP","Bontrager Race/Race Lite/Race X Lite/Race XXX Lite, M6 bolt",null,17],
+  ["SP","Campagnolo seatpost single saddle rail clamp bolt",18,22],
+  ["SP","Campagnolo seatpost binder pinch bolt, carbon seatpost",null,10],
+  ["SP","Deda saddle rail clamp bolt",null,22],
+  ["SP","Easton EC90, EC70, EA70 saddle rail clamp bolts",null,11],
+  ["SP","Easton EC90 Zero, EC70 Zero saddle rail clamp bolts",null,6],
+  ["SP","FSA M5 seatpost rail clamp bolts (steel)",null,9],
+  ["SP","FSA M6 seatpost rail clamp bolts (steel)",null,12],
+  ["SP","FSA M7 seatpost rail clamp bolts (steel)",null,17],
+  ["SP","ITM K-Sword M6 (for GWS system)",10,11],
+  ["SP","ITM K-Sword Special Bolts (saddle clamp bolt)",10,11],
+  ["SP","ITM Forged Lite All series (alu, alu-carbon, carbon) M7",7,8],
+  ["SP","Oval Concepts M6 saddle rail clamp bolts",null,15],
+  ["SP","Ritchey single saddle rail clamp bolt: Comp, Old Pro, M8",null,45],
+  ["SP","Ritchey dual saddle rail clamp bolt: WCS, New Pro, M6",null,19],
+  ["SP","seat collar bolt, M5",5,7],
+  ["SP","seat collar bolt, M6",7,9],
+  ["SP","seatpost saddle rail clamp bolt, M8",20,39],
+  ["SP","seat-tube clamp binder bolt, M6",12,16],
+  ["SP","Selcof saddle rail clamp bolt, M6",null,8],
+  ["SP","Selcof saddle rail clamp bolt, M8",null,20],
+  ["SP","Thomson saddle rail clamp bolt, M6",null,7],
+  ["SP","Trek Madone seat mast cap clamp bolt",5,7],
+  ["SP","Trek Madone saddle rail clamp bolt on seat mast cap",14,16],
+  ["SP","Trek spec for single bolt using 6mm hex key",17,28],
+  ["SP","Trek spec for single bolt using 5mm hex key",10,14],
+  ["SP","Trek spec for double bolt using 4mm hex key",5,7],
+  ["SP","Trek spec for binder bolt for aluminum seatpost",10,14],
+  ["SP","Trek spec for binder bolt for carbon-fiber seatpost",7,9],
+  ["SP","Truvativ M6 two-bolt",22,24],
+  ["SP","Truvativ M8 single bolt",20,39],
+  ["SP","two-piece steel seatpost saddle rail clamp bolt",4,7],
+  ["STM","3T M5 bolts (front clamp, steerer clamp)",null,5],
+  ["STM","3T M6 bolts (single steerer clamp)",null,15],
+  ["STM","3T M6 bolts (two-bolt front clamp plate)",null,15],
+  ["STM","3T M8 bolts (single handlebar clamp)",null,25],
+  ["STM","bar end for flat handlebar M6 clamp bolt",14,16],
+  ["STM","Bontrager M8 steerer tube clamp bolts",null,23],
+  ["STM","Bontrager M7 stem bolts (6mm hex key)",null,17],
+  ["STM","Bontrager M6 stem bolts (5mm hex key)",null,14],
+  ["STM","Bontrager M5 stem bolts (4mm hex key)",5,7],
+  ["STM","Cinelli M5 steel bolts (4mm hex key)",null,7],
+  ["STM","Cinelli M6 steel bolts (5mm hex key)",null,9],
+  ["STM","Deda M5 steel bolts (bar clamp, steerer clamp)",null,8],
+  ["STM","Deda M5 titanium bolts (bar clamp, steerer clamp)",null,8],
+  ["STM","Deda M6 bolts (bar clamp, steerer clamp)",null,10],
+  ["STM","Deda M6 old-model hidden steerer clamp bolt",null,15],
+  ["STM","Deda M8 bolts (quill expander)",null,10],
+  ["STM","Dimension two-bolt face plate bar clamp, M6",9,10],
+  ["STM","Dimension two-bolt steerer tube clamp, M6",9,10],
+  ["STM","Dimension one-bolt handlebar clamp, M8 bolt",23,27],
+  ["STM","Easton M5 bar & steerer clamp bolts",5,8],
+  ["STM","FSA M5 titanium bolts (use Ti prep!)",null,8],
+  ["STM","FSA M5 steel steerer clamp bolts (4mm hex key)",null,6],
+  ["STM","FSA M6 steel bolts",null,12],
+  ["STM","FSA M8 steel bolts",null,18],
+  ["STM","ITM M8 bolts (single-bolt clamp or expander)",17,18],
+  ["STM","ITM M7 bolts",12,14],
+  ["STM","ITM M6 bolts (bar clamp, steerer clamp)",10,12],
+  ["STM","ITM M5 bolts (bar clamp, steerer clamp) 2 front bolts",7,8],
+  ["STM","ITM M5 bolts (bar clamp) 4 front bolts",4,5],
+  ["STM","ITM aluminum M6 bolts in magnesium stem, all bolts",5,6],
+  ["STM","LOOK stems, all bolts",null,5],
+  ["STM","Modolo M5 handlebar clamp bolt (4mm hex key)",null,7],
+  ["STM","Modolo M5 steerer clamp bolt (4mm hex key)",null,8],
+  ["STM","Oval Concepts titanium M5 faceplate bolts for alloy bars",null,10],
+  ["STM","Oval Concepts titanium M5 faceplate bolts for carbon bars",null,6],
+  ["STM","Oval Concepts M6 faceplate bolts for carbon bars",null,6],
+  ["STM","Oval Concepts titanium M6 clamp bolts for alloy steerers",null,10],
+  ["STM","Oval Concepts titanium M6 clamp bolts for carbon steerers",null,6],
+  ["STM","Oval Concepts M6 clamp bolts for alloy steerers",null,11],
+  ["STM","Oval Concepts M6 clamp bolts for carbon steerers",null,7],
+  ["STM","PRO M5 handlebar clamp bolt (4mm hex key)",null,4],
+  ["STM","PRO M5 steerer clamp bolt (4mm hex key)",null,5],
+  ["STM","Profile M6 steel bolts (5mm hex key)",null,9],
+  ["STM","RaceFace M5 steel bolts (4mm hex key)",7,9],
+  ["STM","Ritchey WCS M5 faceplate bolts for alloy bars",3,5],
+  ["STM","Ritchey WCS M5 faceplate bolts for carbon bars",null,4],
+  ["STM","Ritchey M5 steerer clamp bolts (4mm hex key)",null,5],
+  ["STM","Ritchey WCS M6 clamp bolts for alloy steerers",6,10],
+  ["STM","Ritchey WCS M6 clamp bolts for carbon steerers",null,9],
+  ["STM","Salsa SUL two-bolt face plate bar clamp, M6",14,15],
+  ["STM","Salsa one-bolt handlebar clamp, M6 bolt",null,16],
+  ["STM","Salsa one-bolt steerer tube clamp, M6 bolt",11,12],
+  ["STM","single stem handlebar clamping bolt, M8",null,6],
+  ["STM","Syntace M5 steel bolts (4mm hex key)",null,5],
+  ["STM","Thomson Elite, X2, X4 steerer clamp bolts, M5",null,5],
+  ["STM","Thomson Elite handlebar clamp bolts, M5",null,4],
+  ["STM","Thomson X4 handlebar clamp bolts, M5",17,20],
+  ["STM","Trek spec for handlebar clamp bolts on forged stems",11,14],
+  ["STM","Trek spec for handlebar clamp bolts on welded stems",null,11],
+  ["STM","Trek spec for handlebar clamp bolts with carbon handlebar",17,20],
+  ["STM","Trek spec for stem angle adjustment bolt",20,29],
+  ["STM","Trek spec for stem expander bolt",11,14],
+  ["STM","Trek spec for stem steerer clamp bolts",14,16],
+  ["STM","Trek spec for tandem stoker stem extension adjustment bolt",11,14],
+  ["STM","Trek spec for tandem stoker stem seatpost clamp bolt",5,6],
+  ["STM","Truvativ M5 bolts - handlebar",6,7],
+  ["STM","Truvativ M6 bolts - handlebar",8,9],
+  ["STM","Truvativ M6 bolts - steerer",12,14],
+  ["STM","Truvativ M7 bolts - steerer",16,20],
+  ["HB","Bontrager aluminum handlebar, M7 stem face plate bolt",null,17],
+  ["HB","Bontrager aluminum handlebar, M6 stem face plate bolt",null,14],
+  ["HB","Bontrager aluminum or carbon handlebar, M5 stem face plate bolt",null,7],
+  ["HB","Bontrager carbon handlebar, M6 stem face plate bolt",null,11],
+  ["AHB","3T Bio Arms handlebar clamp/armrest bolts, M8",null,20],
+  ["AHB","3T extension clamp bolts, all models, M6",null,15],
+  ["AHB","3T New Ahero armrest offset arm mounting bolt, M5",null,9],
+  ["AHB","3T New Ahero armrest bolts, M6",null,12],
+  ["AHB","3T Sub-8 and Mini Sub-8 armrest bolts, with riser, M5",null,8],
+  ["AHB","3T Sub-8 and Mini Sub-8 armrest bolts, without riser, M5",null,5],
+  ["AHB","Oval Concepts A900 extension clamp bolts, M5",null,6],
+  ["AHB","Oval Concepts A900 base bar clamp bolts, M5",null,6],
+  ["AHB","Oval Concepts A700 extension clamp bolts, M6",null,10],
+  ["AHB","Oval Concepts SLAM extension clamp bolts, M5",null,8],
+  ["AHB","Oval Concepts SLAM handlebar clamp bolts, M5",null,8],
+  ["AHB","Oval Concepts armrest bolts, carbon bars, M5",null,7],
+  ["AHB","Oval Concepts armrest bolts, aluminum bars, M5",null,10],
+  ["AHB","VisionTech armrest bolts, M5",null,8],
+  ["AHB","VisionTech extension clamp bolts, M6",null,10],
+  ["AHB","Trek spec for armrest bolts, M5",null,5],
+  ["AHB","Trek spec for extension clamp bolts, M6",null,7],
+];
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let currentCat = "ALL";
+let currentQuery = "";
+
+// ── DOM REFS ────────────────────────────────────────────────────────────────
+const searchEl  = document.getElementById("search");
+const catBar    = document.getElementById("cat-bar");
+const countEl   = document.getElementById("count");
+const resultsEl = document.getElementById("results");
+const emptyEl   = document.getElementById("empty");
+const tooltipEl = document.getElementById("tooltip");
+
+// ── CATEGORY LABELS (for tooltips) ──────────────────────────────────────────
+const CAT_LABEL = {
+  GEN:    "General Torque — Steel Bolt into Aluminum Part",
+  BB:     "Bottom Brackets & Cranks",
+  BRK_SP: "Brakes — Sidepull Calipers",
+  BRK_CV: "Brakes — Cantilevers & V-Brakes",
+  BRK_DC: "Brakes — Disc Brakes",
+  DER:    "Derailleurs & Shifters",
+  DCL:    "Dual Control Lever",
+  HUB:    "Hubs, Cassettes & Quick-Release Skewers",
+  MISC:   "Miscellaneous",
+  PED:    "Pedals & Shoes",
+  SP:     "Seatposts & Seat Binders",
+  STM:    "Stems",
+  HB:     "Handlebars",
+  AHB:    "Aero Handlebars",
+};
+
+// ── TOOLTIP LOGIC ────────────────────────────────────────────────────────────
+let tooltipTimer = null;
+
+function showTooltip(text, x, y) {
+  tooltipEl.textContent = text;
+  tooltipEl.style.display = "block";
+  const tw = tooltipEl.offsetWidth;
+  const left = Math.min(x, window.innerWidth - tw - 8);
+  tooltipEl.style.left = Math.max(8, left) + "px";
+  tooltipEl.style.top  = (y + 12) + "px";
+  clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(() => { tooltipEl.style.display = "none"; }, 2000);
+}
+
+// Event delegation — one listener handles all cat tags in results
+resultsEl.addEventListener("click", e => {
+  const tag = e.target.closest(".cat-tag");
+  if (!tag) return;
+  const label = CAT_LABEL[tag.dataset.cat];
+  if (!label) return;
+  const r = tag.getBoundingClientRect();
+  showTooltip(label, r.left, r.bottom);
+});
+
+// ── BUILD CATEGORY BUTTONS ──────────────────────────────────────────────────
+const cats = [...new Set(DATA.map(r => r[0]))];
+cats.forEach(cat => {
+  const btn = document.createElement("button");
+  btn.className = "cat-btn";
+  btn.dataset.cat = cat;
+  btn.textContent = cat;
+  btn.title = CAT_LABEL[cat] || cat;
+  btn.addEventListener("click", () => setCat(cat));
+  catBar.appendChild(btn);
+});
+
+const pad = document.createElement("span");
+pad.style.cssText = "flex-shrink:0;width:8px;display:inline-block;";
+catBar.appendChild(pad);
+
+// ── HIGHLIGHT HELPER ────────────────────────────────────────────────────────
+function highlight(text, query) {
+  if (!query) return escHtml(text);
+  const safe = escHtml(text);
+  const safeQ = escHtml(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return safe.replace(new RegExp(safeQ, "gi"), m => `<mark>${m}</mark>`);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  const q = currentQuery.toLowerCase().trim();
+
+  const filtered = DATA.filter(([cat, desc]) => {
+    const catMatch = currentCat === "ALL" || cat === currentCat;
+    const textMatch = !q ||
+      desc.toLowerCase().includes(q) ||
+      cat.toLowerCase().includes(q);
+    return catMatch && textMatch;
+  });
+
+  countEl.textContent = filtered.length + " result" + (filtered.length !== 1 ? "s" : "");
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+
+  const frag = document.createDocumentFragment();
+  filtered.forEach(([cat, desc, nmMin, nmMax]) => {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    let nmStr;
+    if (nmMin === null || nmMin === nmMax) {
+      nmStr = nmMax;
+    } else {
+      nmStr = nmMin + "–" + nmMax;
+    }
+
+    row.innerHTML =
+      `<span class="cat-tag" data-cat="${escHtml(cat)}" title="${escHtml(CAT_LABEL[cat] || cat)}">${escHtml(cat)}</span>` +
+      `<span class="desc">${highlight(desc, currentQuery.trim())}</span>` +
+      `<span class="nm">${nmStr} <span class="unit">N·m</span></span>`;
+
+    frag.appendChild(row);
+  });
+
+  resultsEl.innerHTML = "";
+  resultsEl.appendChild(frag);
+}
+
+// ── CATEGORY SWITCH ──────────────────────────────────────────────────────────
+function setCat(cat) {
+  currentCat = cat;
+  document.querySelectorAll(".cat-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.cat === cat);
+  });
+  render();
+}
+
+// ── EVENTS ───────────────────────────────────────────────────────────────────
+searchEl.addEventListener("input", () => {
+  currentQuery = searchEl.value;
+  render();
+});
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
