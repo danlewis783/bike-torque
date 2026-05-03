@@ -236,9 +236,7 @@
          spellcheck="false">
 </header>
 
-<div id="cat-bar">
-  <button class="cat-btn active" data-cat="ALL">ALL</button>
-</div>
+<div id="cat-bar"></div>
 
 <div id="count"></div>
 
@@ -613,13 +611,13 @@ resultsEl.addEventListener("click", e => {
 });
 
 // ── BUILD CATEGORY BUTTONS ──────────────────────────────────────────────────
-const cats = [...new Set(DATA.map(r => r[0]))];
+const cats = ["ALL", ...new Set(DATA.map(r => r[0]))];
 cats.forEach(cat => {
   const btn = document.createElement("button");
-  btn.className = "cat-btn";
+  btn.className = "cat-btn" + (cat === "ALL" ? " active" : "");
   btn.dataset.cat = cat;
   btn.textContent = cat;
-  btn.title = CAT_LABEL[cat] || cat;
+  btn.title = cat === "ALL" ? "Show all categories" : (CAT_LABEL[cat] || cat);
   btn.addEventListener("click", () => setCat(cat));
   catBar.appendChild(btn);
 });
